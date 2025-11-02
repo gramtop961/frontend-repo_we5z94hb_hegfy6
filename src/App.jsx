@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { LogOut } from 'lucide-react';
-
+import Navbar from './components/Navbar';
 import Hero from './components/Hero';
-import AuthPanel from './components/AuthPanel';
 import TaskBoard from './components/TaskBoard';
 import AssistantPanel from './components/AssistantPanel';
+import LoginForm from './components/LoginForm';
+import SignupForm from './components/SignupForm';
 
 const readSession = () => {
   try {
@@ -20,8 +20,23 @@ const writeSession = (session) => {
   else localStorage.setItem('flowpilot_session', JSON.stringify(session));
 };
 
+const useHashRoute = () => {
+  const getPath = () => decodeURI(window.location.hash.replace(/^#/, '')) || '/';
+  const [path, setPath] = useState(getPath());
+  useEffect(() => {
+    const onChange = () => setPath(getPath());
+    window.addEventListener('hashchange', onChange);
+    return () => window.removeEventListener('hashchange', onChange);
+  }, []);
+  const navigate = (to) => {
+    window.location.hash = to.startsWith('/') ? `#${to}` : `#/${to}`;
+  };
+  return { path, navigate };
+};
+
 function App() {
   const [session, setSession] = useState(null);
+  const { path, navigate } = useHashRoute();
 
   useEffect(() => {
     setSession(readSession());
@@ -36,6 +51,7 @@ function App() {
   const handleLogout = () => {
     setSession(null);
     writeSession(null);
+    navigate('/login');
   };
 
   // Read tasks for assistant panel aggregation
@@ -48,45 +64,53 @@ function App() {
     }
   }, [session]);
 
+  const isAuthRoute = path.startsWith('/login') || path.startsWith('/register');
+
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-slate-950 via-slate-900 to-black">
-      <div className="mx-auto max-w-6xl px-4 py-6">
-        {/* Header */}
-        <header className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-indigo-600 shadow-inner" />
-            <div>
-              <h1 className="text-lg font-semibold text-white">FlowPilot</h1>
-              <p className="text-xs text-slate-300">Workflow optimizer for small teams</p>
-            </div>
-          </div>
-          {session?.token && (
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-white hover:bg-white/20"
-            >
-              <LogOut className="h-4 w-4" /> Logout
-            </button>
-          )}
-        </header>
+    <div className="min-h-screen w-full bg-[radial-gradient(1000px_600px_at_20%_-10%,#312e81_0%,transparent_60%),radial-gradient(1000px_600px_at_120%_10%,#0ea5e9_0%,transparent_60%),linear-gradient(to_bottom,#020617_0%,#000_100%)]">
+      <Navbar session={session} onLogout={handleLogout} navigate={navigate} />
 
-        {/* Hero with Spline */}
-        <Hero />
-
-        {/* Auth & App sections */}
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="md:col-span-1">
-            <AuthPanel session={session} onLogin={handleLogin} onLogout={handleLogout} />
-            <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-slate-300">
-              This MVP runs fully in your browser with local session and task storage. Backend, database, and AI APIs can be wired up next.
+      <div className="mx-auto max-w-6xl px-4 pb-10">
+        {!isAuthRoute && (
+          <>
+            <Hero />
+            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="md:col-span-2 space-y-4">
+                <TaskBoard session={session} />
+                <AssistantPanel tasks={tasks} session={session} />
+              </div>
+              <aside className="md:col-span-1">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-white">
+                  <h3 className="text-base font-semibold">Welcome to FlowPilot</h3>
+                  <p className="mt-2 text-sm text-slate-300">
+                    Create and track tasks, chat with the AI assistant for insights, and generate weekly summaries. Sign in to personalize your experience.
+                  </p>
+                  {!session?.token && (
+                    <div className="mt-3 space-x-2">
+                      <button onClick={() => navigate('/login')} className="rounded-lg bg-white/10 px-3 py-2 text-xs text-white hover:bg-white/20">Login</button>
+                      <button onClick={() => navigate('/register')} className="rounded-lg bg-indigo-600 px-3 py-2 text-xs text-white hover:bg-indigo-700">Sign Up</button>
+                    </div>
+                  )}
+                </div>
+              </aside>
             </div>
+          </>
+        )}
+
+        {isAuthRoute && (
+          <div className="flex min-h-[70vh] items-center justify-center">
+            {path.startsWith('/login') ? (
+              <LoginForm onLogin={handleLogin} navigate={navigate} />
+            ) : (
+              <SignupForm onLogin={handleLogin} navigate={navigate} />
+            )}
           </div>
-          <div className="md:col-span-2 space-y-4">
-            <TaskBoard session={session} />
-            <AssistantPanel tasks={tasks} session={session} />
-          </div>
-        </div>
+        )}
       </div>
+
+      <footer className="mt-6 border-t border-white/10 py-6 text-center text-xs text-slate-400">
+        Built with love for small teams — FlowPilot MVP
+      </footer>
     </div>
   );
 }
